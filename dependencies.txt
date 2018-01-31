@@ -1,0 +1,4 @@
+ffmpeg-feature
+gtk2-feature
+tensorflow
+opencv

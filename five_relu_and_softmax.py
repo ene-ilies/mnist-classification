@@ -7,6 +7,7 @@ class FiveReLUAndSoftmax():
 	def __init__(self):
 		self.sess = tf.Session()
 		self.X = tf.placeholder(tf.float32, [None, 28, 28, 1], name='X')
+		self.pkeep = tf.placeholder(tf.float32)
 
 	def train(self):
 		mnist = input_data.read_data_sets("MNIST_data/", one_hot=True, reshape=False)
@@ -28,14 +29,23 @@ class FiveReLUAndSoftmax():
 		W4 = tf.Variable(tf.truncated_normal([60, 30], stddev=0.1))
 		b4 = tf.Variable(tf.ones([30])/10)
 
+		pkeep = self.pkeep
+
 		# creating the model
 		XX = tf.reshape(X, [-1, 784])
 		Y1 = tf.nn.relu(tf.matmul(XX, W1) + b1)
-		Y2 = tf.nn.relu(tf.matmul(Y1, W2) + b2)
-		Y3 = tf.nn.relu(tf.matmul(Y2, W3) + b3)
-		Y4 = tf.nn.relu(tf.matmul(Y3, W4) + b4)
+		Y1d = tf.nn.dropout(Y1, pkeep)
 
-		Y = tf.nn.softmax(tf.matmul(Y4, W) + b)
+		Y2 = tf.nn.relu(tf.matmul(Y1d, W2) + b2)
+		Y2d = tf.nn.dropout(Y2, pkeep)
+
+		Y3 = tf.nn.relu(tf.matmul(Y2d, W3) + b3)
+		Y3d = tf.nn.dropout(Y3, pkeep)
+
+		Y4 = tf.nn.relu(tf.matmul(Y3d, W4) + b4)
+		Y4d = tf.nn.dropout(Y4, pkeep)
+
+		Y = tf.nn.softmax(tf.matmul(Y4d, W) + b)
 
 		# placeholder for correct answer
 		Y_ = tf.placeholder(tf.float32, [None, 10])
@@ -69,7 +79,7 @@ class FiveReLUAndSoftmax():
 
 			# load batch of images and correct answers
 			batch_X, batch_Y = mnist.train.next_batch(100)
-			train_data = {X: batch_X, Y_: batch_Y, lr: learning_rate}
+			train_data = {X: batch_X, Y_: batch_Y, lr: learning_rate, pkeep: 0.75}
 
 			# train
 			sess.run(train_step, feed_dict=train_data)
@@ -78,12 +88,12 @@ class FiveReLUAndSoftmax():
 			print("Train | Step: %5d, Accuracy: %5f, Cost: %10f." % (i, a, c))
 
 			# success on test data ?
-			test_data = {X: mnist.test.images, Y_: mnist.test.labels}
+			test_data = {X: mnist.test.images, Y_: mnist.test.labels, pkeep: 1}
 			a,c = sess.run([accuracy, cross_entropy], feed_dict=test_data)
 			print("Test  | Step: %5d, Accuracy: %5f, Cost: %10f." % (i, a, c))
 
 		self.model = tf.argmax(Y, 1)
 
 	def fit(self, img):
-		return self.sess.run([self.model], feed_dict={self.X: [img]})[0]
+		return self.sess.run([self.model], feed_dict={self.X: [img], self.pkeep: 1})[0]
 
